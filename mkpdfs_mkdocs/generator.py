@@ -58,6 +58,13 @@ class Generator(object):
         pdf_path = os.path.join(self.mkdconfig['site_dir'],
                                 self.config['output_path'])
         os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+
+        if self.config['export_combinedHTML']:
+            htmlcontent = str(self.html)
+            text_file = open(pdf_path + ".html", "w")
+            text_file.write(htmlcontent)
+            text_file.close()
+
         html = HTML(string=str(self.html)).write_pdf(pdf_path,
                                                      font_config=font_config)
         self.logger.log(msg='The PDF version of the documentation has been generated.', level=logging.INFO, )
