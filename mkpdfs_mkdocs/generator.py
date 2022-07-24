@@ -127,9 +127,8 @@ class Generator(object):
             if css:
                 css_tmpl = '<link rel="stylesheet" href="{}" type="text/css">'
                 lines.append(css_tmpl.format(urls.path2url(css)))
-        head = BeautifulSoup('\n'.join(lines), 'html5lib')
-        self.html.head.clear()
-        self.html.head.insert(0, head)
+        head = BeautifulSoup('<head>' + '\n'.join(lines) + '</head>', 'html.parser')
+        self.html.head.replace_with(head)
 
     def get_path_to_pdf(self, start):
         pdf_split = os.path.split(self.config['output_path'])
