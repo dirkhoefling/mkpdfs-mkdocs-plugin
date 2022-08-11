@@ -24,7 +24,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'mkdocs>=0.17',
-        'weasyprint>=0.44',
+        'weasyprint>=0.53',
         'beautifulsoup4>=4.6.3'
     ],
     project_urls={  # Optional
