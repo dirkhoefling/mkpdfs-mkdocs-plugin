@@ -6,8 +6,24 @@ from weasyprint import urls
 from bs4 import BeautifulSoup
 
 def get_combined(soup: BeautifulSoup, base_url: str, rel_url: str):
-    for id in soup.find_all(id=True):
-        id['id'] = transform_id(id['id'], rel_url)
+    # Add explicit anchor tags for headings with ids (for MkDocs Material { #anchor } syntax)
+    for heading in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+        if heading.get('id'):
+            # Create an anchor element before the heading for better PDF anchor resolution
+            # Use BeautifulSoup to create the new tag since soup is actually a Tag element
+            anchor_soup = BeautifulSoup('<a></a>', 'html.parser')
+            anchor = anchor_soup.a
+            anchor['id'] = heading['id']
+            anchor['name'] = heading['id']
+            heading.insert_before(anchor)
+
+    # Transform all id attributes
+    for el in soup.find_all(id=True):
+        el['id'] = transform_id(el['id'], rel_url)
+
+    # Also transform name attributes on anchor elements
+    for a in soup.find_all('a', attrs={'name': True}):
+        a['name'] = transform_id(a['name'], rel_url)
 
     for a in soup.find_all('a', href=True):
         if urls.url_is_absolute(a['href']) or os.path.isabs(a['href']):

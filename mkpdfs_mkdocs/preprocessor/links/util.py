@@ -4,6 +4,9 @@ from weasyprint import urls
 from bs4 import BeautifulSoup
 
 
+# File extensions that should NOT be treated as documentation links
+NON_DOC_EXTENSIONS = {'.xls', '.xlsx', '.pdf', '.doc', '.docx', '.zip', '.png', '.jpg', '.jpeg', '.gif', '.svg'}
+
 # check if href is relative --
 # if it is relative it *should* be an html that generates a PDF doc
 def is_doc(href: str):
@@ -11,6 +14,13 @@ def is_doc(href: str):
         return False
     if os.path.isabs(href):
         return False
+
+    # Check if the href points to a non-documentation file (downloads, images, etc.)
+    # Extract the path part before any anchor
+    path_part = href.split('#')[0].split('?')[0].lower()
+    for ext in NON_DOC_EXTENSIONS:
+        if path_part.endswith(ext):
+            return False
 
     return True
 
