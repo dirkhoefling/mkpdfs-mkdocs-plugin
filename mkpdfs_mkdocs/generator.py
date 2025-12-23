@@ -7,6 +7,7 @@ from weasyprint import HTML, urls, CSS
 from bs4 import BeautifulSoup
 from weasyprint.text.fonts import FontConfiguration
 
+from datetime import datetime
 from mkpdfs_mkdocs.utils import gen_address
 from .utils import is_external
 from mkpdfs_mkdocs.preprocessor import get_separate as prep_separate, get_combined as prep_combined
@@ -47,8 +48,8 @@ class Generator(object):
                 been found.'.format(css_file))
             self.design = css_file
         self.title = config['site_name']
-        self.config['copyright'] = 'CC-BY-SA\
-        ' if not config['copyright'] else config['copyright']
+        copyright_text = config.get('copyright') or ''
+        self.config['copyright'] = copyright_text.replace('@YYYY', str(datetime.now().year))
         self.mkdconfig = config
 
     def write(self):

@@ -6,9 +6,7 @@ extra_css:
 theme:
   name: material
   language: 'en'
-  font:
-    text: 'Roboto'
-    code: 'Roboto Mono'
+  font: false
   palette:
     primary: 'blue'
     accent: 'blue-light'
