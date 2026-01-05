@@ -41,12 +41,41 @@ def abs_asset_href(href: str, base_url: str):
 
     return urls.iri_to_uri(urls.urljoin(base_url, href))
 
+# Replace SVG with PNG for PDF generation (only if PNG exists in _svg_to_png subfolder - SVG 2.0 not supported by WeasyPrint)
+def replace_svg_with_png(src: str, base_url: str = None):
+    if src.lower().endswith('.svg'):
+        # PNG is in _svg_to_png subfolder: image.svg -> _svg_to_png/image.png
+        src_dir = os.path.dirname(src)
+        src_name = os.path.basename(src)
+        png_name = src_name[:-4] + '.png'
+        png_src = os.path.join(src_dir, '_svg_to_png', png_name) if src_dir else '_svg_to_png/' + png_name
+
+        # Check if PNG file exists (for SVG 2.0 files that were converted)
+        if base_url:
+            # Try to resolve the full path
+            from urllib.parse import urlparse, unquote
+            parsed = urlparse(base_url)
+            if parsed.scheme == 'file':
+                base_path = unquote(parsed.path)
+                # On Windows, remove leading slash from /C:/...
+                if len(base_path) > 2 and base_path[0] == '/' and base_path[2] == ':':
+                    base_path = base_path[1:]
+                png_path = os.path.join(os.path.dirname(base_path), png_src.lstrip('/'))
+                png_path = os.path.normpath(png_path)
+                if os.path.exists(png_path):
+                    return png_src
+        return src  # Keep SVG if no PNG exists
+    return src
+
+
 # makes all relative asset links absolute
 def replace_asset_hrefs(soup: BeautifulSoup, base_url: str):
     for link in soup.find_all('link', href=True):
         link['href'] = abs_asset_href(link['href'], base_url)
 
     for asset in soup.find_all(src=True):
+        # Replace SVG with PNG for better PDF compatibility (only if PNG exists)
+        asset['src'] = replace_svg_with_png(asset['src'], base_url)
         asset['src'] = abs_asset_href(asset['src'], base_url)
 
     return soup
