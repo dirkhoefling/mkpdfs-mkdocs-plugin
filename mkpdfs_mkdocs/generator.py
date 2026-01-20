@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+from html import unescape
 from uuid import uuid4
 
 from weasyprint import HTML, urls, CSS
@@ -96,7 +97,7 @@ class Generator(object):
                                           # See also nest_heading_bookmarks()
                                          'style': 'bookmark-level:{}'.format(level)}
                                       )
-            title.append(page.title)
+            title.append(unescape(page.title))
             article = self.html.new_tag('article',
                                         id='{}'.format(uuid),
                                         **{'class': 'chapter'}
@@ -186,7 +187,7 @@ class Generator(object):
                 # Skip toc generation for external links
                 continue
             h3 = self.html.new_tag('h3')
-            h3.insert(0, n.title)
+            h3.insert(0, unescape(n.title))
             self._toc.append(h3)
             if n.is_page:
                 ptoc = self._gen_toc_page(n.file.url, n.toc)
@@ -227,7 +228,7 @@ class Generator(object):
                     # Skip section header if marked with pdf_chapter: false
                     if p.title not in self._skipped_sections:
                         h3 = self.html.new_tag('h3')
-                        h3.insert(0, p.title)
+                        h3.insert(0, unescape(p.title))
                         self._toc.append(h3)
                     self._gen_toc_section(p)
                     continue
@@ -243,7 +244,7 @@ class Generator(object):
         ul = self.html.new_tag('ul')
         for child in children:
             a = self.html.new_tag('a', href=child.url)
-            a.insert(0, child.title)
+            a.insert(0, unescape(child.title))
             li = self.html.new_tag('li')
             li.append(a)
             if child.children:
@@ -257,14 +258,14 @@ class Generator(object):
         menu = self.html.new_tag('div')
         h4 = self.html.new_tag('h4')
         a = self.html.new_tag('a', href='#')
-        a.insert(0, p.title)
+        a.insert(0, unescape(p.title))
         h4.append(a)
         menu.append(h4)
         ul = self.html.new_tag('ul')
         if p.toc:
             for child in p.toc.items:
                 a = self.html.new_tag('a', href=child.url)
-                a.insert(0, child.title)
+                a.insert(0, unescape(child.title))
                 li = self.html.new_tag('li')
                 li.append(a)
                 if child.title == p.title:
@@ -285,7 +286,7 @@ class Generator(object):
         for item in toc.items:
             li = self.html.new_tag('li')
             a = self.html.new_tag('a', href=item.url)
-            a.append(item.title)
+            a.append(unescape(item.title))
             li.append(a)
             menu.append(li)
             if item.children:
