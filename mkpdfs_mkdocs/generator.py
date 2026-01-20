@@ -33,6 +33,8 @@ class Generator(object):
         self._page_nesting = {}
         self._base_urls = {}
         self._toc = None
+        self._index_to_chapter = {}  # Maps index.md URL to chapter UUID
+        self._skipped_sections = set()  # Section titles to skip in TOC
         self.html = BeautifulSoup('<html><head></head>\
         <body></body></html>',
                                   'html.parser')
@@ -101,6 +103,12 @@ class Generator(object):
                                         )
             article.append(title)
             self._articles[uuid] = article
+            # Track index.md to chapter mapping for pdf_chapter support
+            for child in page.children:
+                if child.is_page and hasattr(child, 'file') and child.file.name == 'index':
+                    self._index_to_chapter[child.file.src_path] = (uuid, page.title)
+                    self.logger.info(f"Tracked chapter mapping: {child.file.src_path} -> {uuid} (title: {page.title})")
+                    break
             for child in page.children:
                 self.add_to_order(child, level=level + 1)
 
@@ -133,6 +141,20 @@ class Generator(object):
         if page.meta and 'pdf' in page.meta and not page.meta['pdf']:
             # print(page.meta)
             return self.get_path_to_pdf(page.file.dest_path)
+        # Check if this index.md has pdf_chapter: false - if so, remove the chapter article
+        if page.meta and 'pdf_chapter' in page.meta and not page.meta['pdf_chapter']:
+            self.logger.info(f"Found pdf_chapter: false in {page.file.src_path}")
+            if page.file.src_path in self._index_to_chapter:
+                chapter_uuid, section_title = self._index_to_chapter[page.file.src_path]
+                self.logger.info(f"Removing chapter {chapter_uuid} for {page.file.src_path} (section: {section_title})")
+                if chapter_uuid in self._articles:
+                    del self._articles[chapter_uuid]
+                if chapter_uuid in self._page_order:
+                    self._page_order.remove(chapter_uuid)
+                # Also skip this section in TOC
+                self._skipped_sections.add(section_title)
+            else:
+                self.logger.info(f"No chapter mapping found for {page.file.src_path}")
         self._articles[page.file.url] = article
         return self.get_path_to_pdf(page.file.dest_path)
 
@@ -202,9 +224,11 @@ class Generator(object):
                         in p.meta and not p.meta['pdf']:
                     continue
                 if p.is_section:
-                    h3 = self.html.new_tag('h3')
-                    h3.insert(0, p.title)
-                    self._toc.append(h3)
+                    # Skip section header if marked with pdf_chapter: false
+                    if p.title not in self._skipped_sections:
+                        h3 = self.html.new_tag('h3')
+                        h3.insert(0, p.title)
+                        self._toc.append(h3)
                     self._gen_toc_section(p)
                     continue
                 if not hasattr(p, 'file'):
