@@ -12,6 +12,7 @@ from datetime import datetime
 from mkpdfs_mkdocs.utils import gen_address
 from .utils import is_external
 from mkpdfs_mkdocs.preprocessor import get_separate as prep_separate, get_combined as prep_combined
+from mkpdfs_mkdocs.preprocessor import adjust_heading_levels
 from mkpdfs_mkdocs.preprocessor import nest_heading_bookmarks
 from mkpdfs_mkdocs.preprocessor import remove_header_links
 from mkpdfs_mkdocs.preprocessor import remove_material_header_icons
@@ -136,9 +137,16 @@ class Generator(object):
             article = remove_material_header_icons(article)
         article = prep_combined(article, base_url, page.file.url)
         article = remove_header_links(article)
-        article = nest_heading_bookmarks(
-            article, self._page_nesting.get(page.file.url, 0)
-        )
+        nesting_level = self._page_nesting.get(page.file.url, 0)
+        article = nest_heading_bookmarks(article, nesting_level)
+        # Optionally adjust visual heading levels based on nesting depth
+        if self.config.get('heading_shift', False):
+            # Non-index pages get an extra level shift (they're subpages of index.md)
+            shift_level = nesting_level
+            if page.file.name != 'index':
+                shift_level += 1
+            self.logger.info(f"heading_shift: {page.file.src_path} nesting={nesting_level} shift={shift_level}")
+            article = adjust_heading_levels(article, shift_level)
         if page.meta and 'pdf' in page.meta and not page.meta['pdf']:
             # print(page.meta)
             return self.get_path_to_pdf(page.file.dest_path)
@@ -220,6 +228,8 @@ class Generator(object):
 
     def _gen_toc_section(self, section):
         if section.children:  # External Links do not have children
+            # First pass: find index.md and render its TOC items
+            section_ul = None
             for p in section.children:
                 if p.is_page and p.meta and 'pdf' \
                         in p.meta and not p.meta['pdf']:
@@ -235,10 +245,23 @@ class Generator(object):
                 if not hasattr(p, 'file'):
                     # Skip external links
                     continue
-                stoc = self._gen_toc_for_section(p.file.url, p)
-                child = self.html.new_tag('div')
-                child.append(stoc)
-                self._toc.append(child)
+                # Handle index.md - its TOC items go directly into section
+                if p.file.name == 'index':
+                    stoc = self._gen_toc_for_index(p.file.url, p)
+                    if stoc:
+                        self._toc.append(stoc)
+                        # Get the ul from the stoc for adding non-index pages
+                        section_ul = stoc.find('ul')
+                else:
+                    # Non-index pages - add their TOC items directly to section ul
+                    items = self._gen_toc_for_subpage(p.file.url, p)
+                    if items:
+                        if section_ul is None:
+                            # No index.md, create a new ul
+                            section_ul = self.html.new_tag('ul')
+                            self._toc.append(section_ul)
+                        for item in items:
+                            section_ul.append(item)
 
     def _gen_children(self, url, children):
         ul = self.html.new_tag('ul')
@@ -253,7 +276,8 @@ class Generator(object):
             ul.append(li)
         return ul
 
-    def _gen_toc_for_section(self, url, p):
+    def _gen_toc_for_index(self, url, p):
+        """Generate TOC for index.md - returns div with h4 title and ul of TOC items"""
         div = self.html.new_tag('div')
         menu = self.html.new_tag('div')
         h4 = self.html.new_tag('h4')
@@ -279,6 +303,34 @@ class Generator(object):
         div.append(menu)
         div = prep_combined(div, self._base_urls[url], url)
         return div.find('div')
+
+    def _gen_toc_for_subpage(self, url, p):
+        """Generate TOC for non-index pages - returns list of li items from the page's TOC"""
+        if not p.toc or len(p.toc.items) == 0:
+            return []
+        # Build a temporary div to hold items for URL transformation
+        div = self.html.new_tag('div')
+        ul = self.html.new_tag('ul')
+        for child in p.toc.items:
+            if child.title == p.title:
+                # Skip the page title itself in the TOC
+                continue
+            li = self.html.new_tag('li')
+            a = self.html.new_tag('a', href=child.url)
+            a.insert(0, unescape(child.title))
+            li.append(a)
+            if child.children:
+                sub = self._gen_children(url, child.children)
+                li.append(sub)
+            ul.append(li)
+        div.append(ul)
+        # Transform URLs through prep_combined
+        div = prep_combined(div, self._base_urls.get(url, ''), url)
+        # Extract and return the li items
+        transformed_ul = div.find('ul')
+        if transformed_ul:
+            return list(transformed_ul.children)
+        return []
 
     def _gen_toc_page(self, url, toc):
         div = self.html.new_tag('div')

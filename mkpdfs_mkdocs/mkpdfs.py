@@ -22,6 +22,7 @@ class Mkpdfs(BasePlugin):
         ('pdf_links', config_options.Type(bool, default=True)),
         ('output_path', config_options.Type(str, default="pdf/combined.pdf")),
         ('export_combinedHTML', config_options.Type(bool, default=False)),
+        ('heading_shift', config_options.Type(bool, default=False)),
     )
 
     def __init__(self):

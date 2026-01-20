@@ -75,3 +75,30 @@ def nest_heading_bookmarks(soup: BeautifulSoup, inc: int):
         for h in soup.find_all('h{}'.format(i)):
             h['style'] = 'bookmark-level:{}'.format(i + inc)
     return soup
+
+
+def adjust_heading_levels(soup: BeautifulSoup, inc: int):
+    """Adjust heading levels based on page nesting depth.
+
+    Transforms heading tags (h1->h2, h2->h3, etc.) based on the page's
+    nesting level in the navigation structure. This ensures proper
+    visual hierarchy in the combined PDF document.
+
+    Args:
+        soup: BeautifulSoup element containing the page content
+        inc: Number of levels to shift headings down (e.g., 1 means h1->h2)
+
+    Returns:
+        Modified soup with adjusted heading levels
+    """
+    if not inc:
+        return soup
+    assert isinstance(inc, int) and inc > 0
+
+    # Process from h6 down to h1 to avoid conflicts
+    # (e.g., don't convert h1->h2 before converting h2->h3)
+    for i in range(6, 0, -1):
+        new_level = min(i + inc, 6)  # Cap at h6
+        for h in soup.find_all('h{}'.format(i)):
+            h.name = 'h{}'.format(new_level)
+    return soup

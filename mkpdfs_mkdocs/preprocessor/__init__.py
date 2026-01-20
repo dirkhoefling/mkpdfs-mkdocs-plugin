@@ -1,4 +1,5 @@
 from .prep import (
+    adjust_heading_levels,
     get_combined,
     get_separate,
     nest_heading_bookmarks,
