@@ -226,9 +226,10 @@ class Generator(object):
         return os.path.relpath(self.config['output_path'],
                                os.path.dirname(start))
 
-    def _gen_toc_section(self, section):
+    def _gen_toc_section(self, section, is_skipped_section=False):
         if section.children:  # External Links do not have children
-            # First pass: find index.md and render its TOC items
+            # Check if this section is marked with pdf_chapter: false
+            section_is_skipped = section.title in self._skipped_sections
             section_ul = None
             for p in section.children:
                 if p.is_page and p.meta and 'pdf' \
@@ -240,7 +241,7 @@ class Generator(object):
                         h3 = self.html.new_tag('h3')
                         h3.insert(0, unescape(p.title))
                         self._toc.append(h3)
-                    self._gen_toc_section(p)
+                    self._gen_toc_section(p, p.title in self._skipped_sections)
                     continue
                 if not hasattr(p, 'file'):
                     # Skip external links
@@ -252,16 +253,21 @@ class Generator(object):
                         self._toc.append(stoc)
                         # Get the ul from the stoc for adding non-index pages
                         section_ul = stoc.find('ul')
-                else:
-                    # Non-index pages - add their TOC items directly to section ul
+                elif section_is_skipped:
+                    # For skipped sections (pdf_chapter: false), add TOC items directly without page title
                     items = self._gen_toc_for_subpage(p.file.url, p)
                     if items:
                         if section_ul is None:
-                            # No index.md, create a new ul
                             section_ul = self.html.new_tag('ul')
                             self._toc.append(section_ul)
                         for item in items:
                             section_ul.append(item)
+                else:
+                    # Normal sections: show page title as header with TOC items
+                    stoc = self._gen_toc_for_page(p.file.url, p)
+                    child = self.html.new_tag('div')
+                    child.append(stoc)
+                    self._toc.append(child)
 
     def _gen_children(self, url, children):
         ul = self.html.new_tag('ul')
@@ -275,6 +281,34 @@ class Generator(object):
                 li.append(sub)
             ul.append(li)
         return ul
+
+    def _gen_toc_for_page(self, url, p):
+        """Generate TOC for normal pages - shows page title as h4 header with TOC items"""
+        div = self.html.new_tag('div')
+        menu = self.html.new_tag('div')
+        h4 = self.html.new_tag('h4')
+        a = self.html.new_tag('a', href='#')
+        a.insert(0, unescape(p.title))
+        h4.append(a)
+        menu.append(h4)
+        ul = self.html.new_tag('ul')
+        if p.toc:
+            for child in p.toc.items:
+                a = self.html.new_tag('a', href=child.url)
+                a.insert(0, unescape(child.title))
+                li = self.html.new_tag('li')
+                li.append(a)
+                if child.title == p.title:
+                    li = self.html.new_tag('div')
+                if child.children:
+                    sub = self._gen_children(url, child.children)
+                    li.append(sub)
+                ul.append(li)
+            if len(p.toc.items) > 0:
+                menu.append(ul)
+        div.append(menu)
+        div = prep_combined(div, self._base_urls[url], url)
+        return div.find('div')
 
     def _gen_toc_for_index(self, url, p):
         """Generate TOC for index.md - returns div with h4 title and ul of TOC items"""
