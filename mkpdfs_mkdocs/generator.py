@@ -322,17 +322,29 @@ class Generator(object):
         ul = self.html.new_tag('ul')
         if p.toc:
             for child in p.toc.items:
+                # If this is the page title (h1), add its children directly to ul
+                if child.title == p.title:
+                    if child.children:
+                        for subchild in child.children:
+                            sub_a = self.html.new_tag('a', href=subchild.url)
+                            sub_a.insert(0, unescape(subchild.title))
+                            sub_li = self.html.new_tag('li')
+                            sub_li.append(sub_a)
+                            if subchild.children:
+                                sub_sub = self._gen_children(url, subchild.children)
+                                sub_li.append(sub_sub)
+                            ul.append(sub_li)
+                    continue
+                # Normal TOC item
                 a = self.html.new_tag('a', href=child.url)
                 a.insert(0, unescape(child.title))
                 li = self.html.new_tag('li')
                 li.append(a)
-                if child.title == p.title:
-                    li = self.html.new_tag('div')
                 if child.children:
                     sub = self._gen_children(url, child.children)
                     li.append(sub)
                 ul.append(li)
-            if len(p.toc.items) > 0:
+            if len(ul.contents) > 0:
                 menu.append(ul)
         div.append(menu)
         div = prep_combined(div, self._base_urls[url], url)
