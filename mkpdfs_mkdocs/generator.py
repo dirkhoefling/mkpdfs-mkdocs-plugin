@@ -64,6 +64,7 @@ class Generator(object):
         self.gen_articles()
         font_config = FontConfiguration()
         self.add_head()
+
         pdf_path = os.path.join(self.mkdconfig['site_dir'],
                                 self.config['output_path'])
         os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
@@ -133,6 +134,17 @@ class Generator(object):
         if not article:
             self.generate = False
             return None
+        # Pre-render Mermaid diagrams to SVG+PNG files (must run before
+        # prep_combined so replace_svg_with_png can swap SVG refs for PNG)
+        try:
+            scripts_dir = os.path.join(os.getcwd(), 'scripts')
+            if scripts_dir not in sys.path:
+                sys.path.insert(0, scripts_dir)
+            from mermaid_renderer import render_mermaid_blocks
+            render_mermaid_blocks(article, base_url)
+        except ImportError:
+            self.logger.debug("mermaid_renderer not available, skipping Mermaid pre-rendering")
+
         if self.mkdconfig['theme'].name == 'material':
             article = remove_material_header_icons(article)
         article = prep_combined(article, base_url, page.file.url)
